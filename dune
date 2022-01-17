@@ -1,0 +1,3 @@
+(executable
+ (name wordle_solver)
+ (libraries batteries))
