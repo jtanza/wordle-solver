@@ -41,11 +41,25 @@ let build_candidates m =
 
 let rec prompt_first_guess words =
   let g = (first_guess words) in
-    IO.write_line IO.stdout @@ Printf.sprintf "Heres a first guess: [%s]\nContinue with this guess [y] or generate another? [n]" g;
-    IO.flush_all();
+    String.println IO.stdout @@ Printf.sprintf "Heres a first guess: [%s]\nContinue with this guess [y] or generate another? [n]" g;
+    IO.flush IO.stdout;
     match IO.read_line IO.stdin with
-      | "y" -> g
-      | _ -> prompt_first_guess words
+    | "y" -> g
+    | _ -> prompt_first_guess words
+
+let prompt_for color =
+  String.print IO.stdout @@ Printf.sprintf "%s: " color;
+  IO.flush IO.stdout;
+  match IO.read_line IO.stdin with
+  | "" -> None
+  | r -> Some(r)
+
+let parse_response color = function
+  | None -> None
+  | Some(s) -> let l = String.split_on_char ',' s in
+    match color with
+    | Gray -> Some(List.map (fun s -> (s.[0], (color, IntSet.empty))) l)
+    | _ -> Some(List.map (fun s -> (s.[0], (color, s.[1] |> String.of_char |>  String.to_int |> IntSet.singleton))) l)
 
 type trie = Node of string * trie CharMap.t
 
@@ -74,8 +88,12 @@ let wildcard_search query exclude trie =
     Dllist.to_list acc
 
 let main () =
+  (* 
   let words = build_word_list "unigram_freq.csv" in
   prompt_first_guess words |> IO.write_line IO.stdout
+  *)
+  (* List.filter_map (identity) [green; yellow; gray] |> List.flatten |> Seq.of_list |> CharMap.of_seq *)
+  String.println IO.stdout @@ Option.get @@ prompt_for "Green"
 
 let () = main ()
 
