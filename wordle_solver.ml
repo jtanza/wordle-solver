@@ -33,7 +33,7 @@ let build_candidates m =
 
   LazyList.filter (fun l -> CharMap.for_all (fun k v -> match List.index_of k l with
       | None -> true
-      | Some(i) -> match v with
+      | Some i -> match v with
         | (color, indexes) -> match color with
           | Green -> IntSet.mem i indexes
           | Yellow -> not @@ IntSet.mem i indexes
@@ -43,6 +43,7 @@ let build_candidates m =
 let top_matches word_map matches =
   List.map (fun m -> (m, StringMap.find_default Int.min_num m word_map)) matches
   |> List.sort (fun a b -> compare (snd a) (snd b))
+  |> List.rev
   |> List.take 3
   |> List.map (fst)
 
@@ -59,14 +60,22 @@ let prompt_for color =
   IO.flush IO.stdout;
   match IO.read_line IO.stdin with
   | "" -> None
-  | r -> Some(r)
+  | r -> Some r
 
 let parse_response color = function
   | None -> None
-  | Some(s) -> let l = String.split_on_char ',' s in
+  | Some s -> let l = String.split_on_char ',' s in
     match color with
     | Gray -> Some(List.map (fun s -> (s.[0], (color, IntSet.empty))) l)
     | _ -> Some(List.map (fun s -> (s.[0], (color, s.[1] |> String.of_char |>  String.to_int |> IntSet.singleton))) l)
+
+
+let merge a b =
+  CharMap.merge (fun _ xo yo -> match xo, yo with
+      | Some x, Some y -> Some((fst x, IntSet.union (snd x) (snd y)))
+      | None, yo -> yo
+      | xo, None -> xo)
+    a b
 
 type trie = Node of string * trie CharMap.t
 
@@ -75,7 +84,7 @@ let add word trie =
     | [] -> Node (word, children)
     | x::xs -> let updated = match CharMap.find_opt x children with
       | None -> add_word xs @@ Node("", CharMap.empty)
-      | Some(t) -> add_word xs t in
+      | Some t -> add_word xs t in
    Node ("", CharMap.add x updated children) in
   add_word (String.explode word) trie
 
@@ -86,7 +95,7 @@ let wildcard_search query exclude trie =
   let acc = Dllist.create "" in
     let rec search w t = match w, t with
       | x::xs, Node("", children) -> (match CharMap.find_opt x children with
-        | Some(t) -> search xs t
+        | Some t -> search xs t
         | None -> match x with
           | '.' -> CharMap.filter (fun k _ -> not @@ CharSet.mem k exclude) children |> CharMap.values |> Enum.iter (fun t -> search xs t)
           | _ -> ())
@@ -99,23 +108,28 @@ let main () =
   let word_map = build_word_map words in
   let trie = List.map (fst) words |> add_all in
   let _ = prompt_first_guess words in
-  let run =
+  let rec prompt prev =
     String.println IO.stdout "How'd we do?";
     IO.flush IO.stdout;
     let resps = [prompt_for "Gray" |> parse_response Gray;
                  prompt_for "Green" |> parse_response Green;
                  prompt_for "Yellow" |> parse_response Yellow] in
-    let response_map = List.filter_map (identity) resps |> List.flatten |> Seq.of_list |> CharMap.of_seq in
+    let response_map = merge prev (List.filter_map (identity) resps |> List.flatten |> Seq.of_list |> CharMap.of_seq) in
     let excludes = List.hd resps |> Option.map_default (fun l -> List.map (fst) l) [] |> CharSet.of_list in
     let matches = build_candidates response_map
                   |> List.map (fun cand -> wildcard_search cand excludes trie)
                   |> List.flatten
                   |> top_matches word_map
-                  |> String.concat ","
-                  |> Printf.sprintf "Here are the top 3 guesses ranked by frequency: %s: " in
+                  |> String.concat ", " in
 
-    String.println IO.stdout matches;
-    IO.flush IO.stdout in
-    run
+    String.println IO.stdout (Printf.sprintf "Here are the top 3 guesses ranked by frequency: %s" matches);
+    String.println IO.stdout "Did we win [y] or continue guessing [n]";
+    IO.flush IO.stdout;
+
+    match IO.read_line IO.stdin with
+    | "n" -> prompt response_map
+    | _ -> String.println IO.stdout "Hooray!" in
+
+  prompt CharMap.empty
 
 let () = main ()
