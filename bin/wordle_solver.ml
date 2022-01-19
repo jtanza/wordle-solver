@@ -117,9 +117,8 @@ let main () =
       ; prompt_for "Yellow" |> parse_response Yellow ]
     in
     let response_map =
-      merge prev
-        ( List.filter_map identity resps
-        |> List.flatten |> Seq.of_list |> CharMap.of_seq )
+      List.filter_map identity resps
+      |> List.flatten |> Seq.of_list |> CharMap.of_seq |> merge prev
     in
     let excludes =
       List.hd resps
@@ -130,10 +129,9 @@ let main () =
       build_candidates response_map
       |> List.map (fun cand -> Trie.wildcard_search cand excludes trie)
       |> List.flatten |> top_matches word_map |> String.concat ", "
+      |> Printf.sprintf "Here are the top 3 guesses ranked by frequency: %s"
     in
-    String.println IO.stdout
-      (Printf.sprintf "Here are the top 3 guesses ranked by frequency: %s"
-         matches ) ;
+    String.println IO.stdout matches ;
     String.println IO.stdout "Did we win [y] or continue guessing [n]" ;
     IO.flush IO.stdout ;
     match IO.read_line IO.stdin with
