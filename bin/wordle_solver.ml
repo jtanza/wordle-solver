@@ -106,7 +106,7 @@ let parse_response color = function
 let main () =
   let words = build_word_list "unigram_freq.csv" in
   let word_map = build_word_map words in
-  let trie = List.map fst words |> add_all in
+  let trie = List.map fst words |> Trie.add_all in
   let _ = prompt_first_guess words in
   let rec prompt prev =
     String.println IO.stdout "How'd we do?" ;
@@ -128,7 +128,7 @@ let main () =
     in
     let matches =
       build_candidates response_map
-      |> List.map (fun cand -> wildcard_search cand excludes trie)
+      |> List.map (fun cand -> Trie.wildcard_search cand excludes trie)
       |> List.flatten |> top_matches word_map |> String.concat ", "
     in
     String.println IO.stdout
