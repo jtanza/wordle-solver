@@ -14,7 +14,7 @@ let build_word_list file =
 
 let build_word_map words = List.fold (fun m t -> StringMap.add (fst t) (snd t) m) StringMap.empty words
 
-let first_guess words = words |> List.take 500 |> List.shuffle |> List.first |> fst
+let first_guess words = words |> List.take 20 |> List.shuffle |> List.first |> fst
 
 type color = Green | Yellow | Gray
 
@@ -38,6 +38,13 @@ let build_candidates m =
           | Green -> IntSet.mem i indexes
           | Yellow -> not @@ IntSet.mem i indexes
           | _ -> true) keepers) permutations
+  |> LazyList.to_list |> List.map (String.of_list)
+
+let top_matches word_map matches =
+  List.map (fun m -> (m, StringMap.find_default Int.min_num m word_map)) matches
+  |> List.sort (fun a b -> compare (snd a) (snd b))
+  |> List.take 3
+  |> List.map (fst)
 
 let rec prompt_first_guess words =
   let g = (first_guess words) in
@@ -88,12 +95,27 @@ let wildcard_search query exclude trie =
     Dllist.to_list acc
 
 let main () =
-  (* 
   let words = build_word_list "unigram_freq.csv" in
-  prompt_first_guess words |> IO.write_line IO.stdout
-  *)
-  (* List.filter_map (identity) [green; yellow; gray] |> List.flatten |> Seq.of_list |> CharMap.of_seq *)
-  String.println IO.stdout @@ Option.get @@ prompt_for "Green"
+  let word_map = build_word_map words in
+  let trie = List.map (fst) words |> add_all in
+  let _ = prompt_first_guess words in
+  let run =
+    String.println IO.stdout "How'd we do?";
+    IO.flush IO.stdout;
+    let resps = [prompt_for "Gray" |> parse_response Gray;
+                 prompt_for "Green" |> parse_response Green;
+                 prompt_for "Yellow" |> parse_response Yellow] in
+    let response_map = List.filter_map (identity) resps |> List.flatten |> Seq.of_list |> CharMap.of_seq in
+    let excludes = List.hd resps |> Option.map_default (fun l -> List.map (fst) l) [] |> CharSet.of_list in
+    let matches = build_candidates response_map
+                  |> List.map (fun cand -> wildcard_search cand excludes trie)
+                  |> List.flatten
+                  |> top_matches word_map
+                  |> String.concat ","
+                  |> Printf.sprintf "Here are the top 3 guesses ranked by frequency: %s: " in
+
+    String.println IO.stdout matches;
+    IO.flush IO.stdout in
+    run
 
 let () = main ()
-
