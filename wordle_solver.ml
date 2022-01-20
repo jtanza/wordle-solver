@@ -70,7 +70,7 @@ let rec prompt_first_guess words =
   let g = first_guess words in
   String.println IO.stdout
   @@ Printf.sprintf
-       "Heres a first guess: [%s]\nContinue with this guess [y] or generate another? [n]" g ;
+       "\nHeres a first guess: [%s]\nContinue with this guess [y] or generate another? [n]" g ;
   IO.flush IO.stdout ;
   match IO.read_line IO.stdin with "y" -> () | _ -> prompt_first_guess words
 
@@ -104,13 +104,15 @@ let rec prompt prev word_map trie =
     List.filter_map identity resps |> List.flatten |> Seq.of_list |> CharMap.of_seq |> merge prev
   in
   let excludes =
-    List.hd resps |> Option.map_default (fun l -> List.map fst l) [] |> CharSet.of_list
+    CharMap.filterv (fun v -> fst v = Gray) response_map
+    |> CharMap.keys
+    |> Enum.fold (fun s e -> CharSet.add e s) CharSet.empty
   in
   let matches =
     build_candidates response_map
     |> List.map (fun cand -> Trie.wildcard_search cand excludes trie)
     |> List.flatten |> top_matches word_map |> String.concat ", "
-    |> Printf.sprintf "Here are the top 3 guesses ranked by frequency: %s"
+    |> Printf.sprintf "Here are the top guesses ranked by frequency: %s"
   in
   String.println IO.stdout matches ;
   String.println IO.stdout "Did we win [y] or continue guessing [n]" ;
