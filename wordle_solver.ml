@@ -4,7 +4,7 @@ module CharMap = Map.Make (Char)
 module CharSet = Set.Make (Char)
 module IntSet = Set.Make (Int)
 
-let first_guess words = words |> List.take 1_000 |> List.shuffle |> List.last |> fst
+let first_guess words = words |> List.take 200 |> List.shuffle |> List.hd |> fst
 
 let build_word_map words =
   List.fold (fun m t -> StringMap.add (fst t) (snd t) m) StringMap.empty words
